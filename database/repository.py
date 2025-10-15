@@ -1,3 +1,5 @@
+#repository.java
+
 from typing import List
 
 from sqlalchemy.orm import Session
@@ -5,24 +7,32 @@ from sqlalchemy import select,delete
 
 from database.orm import ToDo
 
-def get_todos(session: Session) -> List[ToDo]:
-    return list(session.scalars(select(ToDo)))
+from fastapi import Depends
+from database.connection import get_db
 
-def get_todo_by_todo_id(session: Session, todo_id: int) -> ToDo | None:
-    return session.scalar(select(ToDo).where(ToDo.id==todo_id))
 
-def create_todo(session: Session, todo: ToDo) -> ToDo:
-    session.add(instance=todo)
-    session.commit() #db에 저장됨
-    session.refresh(instance=todo) #db에서 데이터 읽어옴 -> todo_id값이 반영됨
-    return todo
+class ToDoRepository:
+    def __init__(self, session: Session = Depends(get_db)):
+        self.session = session
 
-def delete_todo(session: Session, id: int):
-    session.query(ToDo).filter(ToDo.id==id).delete()
-    session.commit()
+    def get_todos(self) -> List[ToDo]:
+        return list(self.session.scalars(select(ToDo)))
 
-def update_todo(session: Session, todo: ToDo, active:bool):
-    session.query(ToDo).filter(ToDo.id==ToDo.id).update(
-        {"is_done": active}
-    )
-    session.commit()
+    def get_todo_by_todo_id(self, todo_id: int) -> ToDo | None:
+        return self.session.scalar(select(ToDo).where(ToDo.id==todo_id))
+
+    def create_todo(self, todo: ToDo) -> ToDo:
+        self.session.add(instance=todo)
+        self.session.commit() #db에 저장됨
+        self.session.refresh(instance=todo) #db에서 데이터 읽어옴 -> todo_id값이 반영됨
+        return todo
+
+    def update_todo(self, todo: ToDo) -> ToDo:
+        self.session.add(instance=todo)
+        self.session.commit()  # db에 저장됨
+        self.session.refresh(instance=todo)  # db에서 데이터 읽어옴 -> todo_id값이 반영됨
+        return todo
+
+    def delete_todo(self, todo_id: int) -> None:
+        self.session.execute(delete(ToDo).where(ToDo.id==todo_id))
+        self.session.commit()
